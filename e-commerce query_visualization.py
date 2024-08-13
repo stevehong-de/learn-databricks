@@ -34,7 +34,7 @@ from pyspark.sql.functions import countDistinct
 
 data = invoices.groupBy("Country").agg(countDistinct("CustomerID"))
 data = data.toPandas()
-data = data.rename(columns={'count(CustomerID)':"UniqueCustomerNumber"}).sort_values(by='UniqueCustomerNumber',ascending=False)
+data = data.rename(columns={'count(DISTINCT CustomerID)':'TotalClientNumber'}).sort_values(by='TotalClientNumber',ascending=False)
 data = data.head(10)
 display(data)
 
@@ -45,14 +45,14 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure
 
 plt.rcParams["figure.figsize"] = (20,3)
-data.plot(kind='bar',x='Country',y='UniqueCustomerNumber')
+data.plot(kind="bar",x="Country",y="TotalClientNumber")
 
 # COMMAND ----------
 
 # DBTITLE 1,Customers Ordering The Most
-# CHALLENGE FOR THE STUDENT: REMOVE THE NULL CustomerID with sparkSQL
 result_df = spark.sql("SELECT CustomerID,COUNT(DISTINCT InvoiceNo) as TotalOrderNumber\
                       FROM default.invoices\
+                      WHERE CustomerID IS NOT NULL\
                       GROUP BY Country, CustomerID\
                       ORDER BY TotalOrderNumber DESC\
                       LIMIT 10")
@@ -66,9 +66,10 @@ display(items)
 # COMMAND ----------
 
 # DBTITLE 1,Distrubution of Items Per Order
-result_df = spark.sql("SELECT StockCode,COUNT(DISTINCT InvoiceNo)\
+result_df = spark.sql("SELECT StockCode,COUNT(DISTINCT InvoiceNo) AS TotalInvoiceCount\
                       FROM default.items\
-                      GROUP BY StockCode")
+                      GROUP BY StockCode\
+                      ORDER BY TotalInvoiceCount DESC")
 display(result_df)
 
 # COMMAND ----------
@@ -84,7 +85,6 @@ display(most_ordered_items_df)
 # COMMAND ----------
 
 # DBTITLE 1,Price Distrubution Per Item
-# CHALLENGE FOR THE STUDENTS: WHY ARE THERE NEGATIVE PRICES?
 price_df = spark.sql("SELECT UnitPrice\
                       FROM default.items\
                       GROUP BY StockCode,Description,UnitPrice")
@@ -93,7 +93,7 @@ price_df.describe().show()
 
 # COMMAND ----------
 
-display(price_df.select('UnitPrice'))
+display(price_df.select('UnitPrice').filter(price_df.UnitPrice < 0)) # WHY?
 
 # COMMAND ----------
 
@@ -102,7 +102,7 @@ import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure
 price_df_pd = price_df.toPandas()
 plt.rcParams["figure.figsize"] = (10,8)
-plt.hist(price_df_pd['UnitPrice'],bins=100);
+plt.hist(price_df_pd['UnitPrice'],bins=100)
 
 # COMMAND ----------
 
